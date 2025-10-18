@@ -88,6 +88,34 @@
       margin: 20px 0;
       font-size: 0.85rem;
     }
+
+    /* ✅ Popup Notification Style */
+    .popup {
+      position: fixed;
+      top: 30px;
+      right: 30px;
+      background-color: #002000;
+      color: #fff;
+      border-left: 6px solid;
+      padding: 15px 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 255, 100, 0.2);
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(-20px);
+      transition: all 0.4s ease;
+      z-index: 9999;
+    }
+    .popup.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .popup.success {
+      border-color: #00ff80;
+    }
+    .popup.error {
+      border-color: #ff4040;
+    }
   </style>
 </head>
 <body>
@@ -123,72 +151,93 @@
     Museum Visitor Log & QR Scanner • Staff Access Only
   </footer>
 
+  <!-- Popup Container -->
+  <div id="popup" class="popup"></div>
+
   <script>
-    let html5QrcodeScanner;
+  let html5QrcodeScanner;
 
-    async function startScanner() {
-      const reader = document.getElementById("reader");
-      reader.innerHTML = "";
-      html5QrcodeScanner = new Html5Qrcode("reader");
+  async function startScanner() {
+    const reader = document.getElementById("reader");
+    reader.innerHTML = "";
+    html5QrcodeScanner = new Html5Qrcode("reader");
 
-      try {
-        await html5QrcodeScanner.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: 250 },
-          (decodedText) => handleScan(decodedText)
-        );
-      } catch (err) {
-        alert("⚠️ Camera access denied or not supported.");
-      }
+    try {
+      await html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (decodedText) => handleScan(decodedText)
+      );
+    } catch (err) {
+      showPopup("⚠️ Camera access denied or not supported.", "error");
+    }
+  }
+
+  function handleScan(decodedText) {
+    html5QrcodeScanner.stop();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(decodedText);
+    } catch {
+      parsed = { unique_id: decodedText };
     }
 
-    function handleScan(decodedText) {
-      html5QrcodeScanner.stop(); // stop camera after scanning
-      fetch("../api/scan_log.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unique_id: decodedText })
-      })
+    const unique_id = parsed.unique_id || "";
+
+    // ✅ Updated URL – use your PC’s IP
+    fetch("http://192.168.0.101/api/scan_log.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unique_id })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        document.getElementById("successSound").play();
+        showPopup("✅ " + data.message, "success");
+      } else {
+        document.getElementById("errorSound").play();
+        showPopup("❌ " + data.message, "error");
+      }
+      loadLogs();
+    })
+    .catch(() => {
+      document.getElementById("errorSound").play();
+      showPopup("⚠️ Error connecting to server.", "error");
+    });
+  }
+
+  function loadLogs() {
+    // ✅ Updated URL – use your PC’s IP
+    fetch("http://192.168.0.101/api/logs.php?limit=10")
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
-          document.getElementById("successSound").play();
-          alert(data.message);
-        } else {
-          document.getElementById("errorSound").play();
-          alert(data.message);
+        const tbody = document.getElementById("logBody");
+        if (!data || data.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No logs</td></tr>`;
+          return;
         }
-        loadLogs();
-      })
-      .catch(() => {
-        document.getElementById("errorSound").play();
-        alert("⚠️ Error connecting to server.");
+        tbody.innerHTML = data.map(r => `
+          <tr>
+            <td>${r.id}</td>
+            <td>${r.fullname}</td>
+            <td>${r.unique_id}</td>
+            <td class="status-entry">${r.action}</td>
+            <td>${r.logged_at}</td>
+          </tr>
+        `).join("");
       });
-    }
+  }
 
-    function loadLogs() {
-      fetch("../api/logs.php?limit=10")
-        .then(res => res.json())
-        .then(data => {
-          const tbody = document.getElementById("logBody");
-          if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No logs</td></tr>`;
-            return;
-          }
-          tbody.innerHTML = data.map(r => `
-            <tr>
-              <td>${r.id}</td>
-              <td>${r.fullname}</td>
-              <td>${r.unique_id}</td>
-              <td class="status-entry">${r.action}</td>
-              <td>${r.logged_at}</td>
-            </tr>
-          `).join("");
-        });
-    }
+  function showPopup(message, type) {
+    const popup = document.getElementById("popup");
+    popup.className = `popup show ${type}`;
+    popup.textContent = message;
+    setTimeout(() => popup.classList.remove("show"), 2500);
+  }
 
-    loadLogs();
-  </script>
+  loadLogs();
+  setInterval(loadLogs, 10000);
+</script>
 
-</body>
-</html>
