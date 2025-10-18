@@ -6,15 +6,18 @@
   <title>Staff Log & Scanner</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+  <!-- ✅ Sound effects -->
+  <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+  <audio id="errorSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
   <style>
     body {
       margin: 0;
       font-family: "Segoe UI", sans-serif;
       background-color: #001000;
       color: #ccffcc;
-      padding: 0;
     }
-
     header {
       background-color: #002800;
       padding: 15px;
@@ -23,12 +26,10 @@
       font-size: 1.3rem;
       box-shadow: 0 2px 8px rgba(0,255,128,0.1);
     }
-
     main {
       padding: 15px;
       text-align: center;
     }
-
     #reader {
       width: 100%;
       max-width: 360px;
@@ -37,7 +38,6 @@
       border-radius: 12px;
       overflow: hidden;
     }
-
     .btn {
       margin-top: 12px;
       background-color: #00ff80;
@@ -48,17 +48,14 @@
       cursor: pointer;
       color: #002000;
     }
-
     .btn:hover {
       background-color: #00cc66;
     }
-
     h2 {
       color: #aaffaa;
       font-size: 1.2rem;
       margin-top: 25px;
     }
-
     table {
       width: 100%;
       border-collapse: collapse;
@@ -67,29 +64,24 @@
       border-radius: 12px;
       overflow: hidden;
     }
-
     th, td {
       padding: 10px;
       border-bottom: 1px solid #004d00;
       text-align: left;
     }
-
     th {
       background-color: #003300;
       color: #aaffaa;
       text-transform: uppercase;
       font-size: 0.8rem;
     }
-
     tr:hover {
       background-color: #003800;
     }
-
     .status-entry {
       color: #00ff80;
       font-weight: bold;
     }
-
     footer {
       text-align: center;
       color: #559955;
@@ -133,53 +125,45 @@
 
   <script>
     let html5QrcodeScanner;
-    async function startScanner() {
-  try {
-    const permission = await navigator.mediaDevices.getUserMedia({ video: true });
-    if (permission) {
-      html5QrcodeScanner = new Html5Qrcode("reader");
-      await html5QrcodeScanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (decodedText) => handleScan(decodedText)
-      );
-    }
-  } catch (err) {
-    alert("⚠️ Camera access denied. Please allow camera permission in browser settings.");
-  }
-}
-
 
     async function startScanner() {
       const reader = document.getElementById("reader");
       reader.innerHTML = "";
       html5QrcodeScanner = new Html5Qrcode("reader");
+
       try {
         await html5QrcodeScanner.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: 250 },
-          (decodedText) => handleScan(decodedText),
-          (errorMessage) => {}
+          (decodedText) => handleScan(decodedText)
         );
       } catch (err) {
-        alert("Camera access denied or not supported.");
+        alert("⚠️ Camera access denied or not supported.");
       }
     }
 
     function handleScan(decodedText) {
-      html5QrcodeScanner.stop();
-      const data = JSON.parse(decodedText); // assuming QR contains JSON {unique_id: "..."}
+      html5QrcodeScanner.stop(); // stop camera after scanning
       fetch("../api/scan_log.php", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unique_id: data.unique_id, scanned_by: "staff" })
+        body: JSON.stringify({ unique_id: decodedText })
       })
       .then(res => res.json())
-      .then(() => {
-        alert("✅ Scan logged for visitor: " + data.unique_id);
+      .then(data => {
+        if (data.success) {
+          document.getElementById("successSound").play();
+          alert(data.message);
+        } else {
+          document.getElementById("errorSound").play();
+          alert(data.message);
+        }
         loadLogs();
       })
-      .catch(() => alert("⚠️ Failed to log scan."));
+      .catch(() => {
+        document.getElementById("errorSound").play();
+        alert("⚠️ Error connecting to server.");
+      });
     }
 
     function loadLogs() {
