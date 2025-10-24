@@ -7,11 +7,7 @@
   <script src="https://unpkg.com/html5-qrcode"></script>
   <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 
-  <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
-  <audio id="errorSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
-
   <style>
-    /* Your existing CSS styles here */
     body {
       margin: 0;
       font-family: "Segoe UI", sans-serif;
@@ -78,15 +74,21 @@
     tr:hover {
       background-color: #003800;
     }
-    .status-entry {
-      color: #00ff80;
+    .check-in { 
+      color: #00ff80; 
       font-weight: bold;
     }
-    footer {
-      text-align: center;
-      color: #559955;
-      margin: 20px 0;
-      font-size: 0.85rem;
+    .check-out { 
+      color: #ff4444; 
+      font-weight: bold;
+    }
+    .visitor-info {
+      background: #003300;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 8px;
+      text-align: left;
+      border-left: 4px solid #00ff80;
     }
     .popup {
       position: fixed;
@@ -94,32 +96,17 @@
       right: 30px;
       background-color: #002000;
       color: #fff;
-      border-left: 6px solid;
+      border-left: 6px solid #00ff80;
       padding: 15px 20px;
       border-radius: 10px;
       box-shadow: 0 4px 10px rgba(0, 255, 100, 0.2);
       font-weight: 500;
-      opacity: 0;
-      transform: translateY(-20px);
-      transition: all 0.4s ease;
-      z-index: 9999;
     }
-    .popup.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    .popup.success {
-      border-color: #00ff80;
-    }
-    .popup.error {
-      border-color: #ff4040;
-    }
-    .demo-data {
-      background: #003300;
-      padding: 10px;
-      margin: 10px 0;
+    .demo-section {
+      background: #004477;
+      padding: 15px;
+      margin: 15px 0;
       border-radius: 8px;
-      color: #88ff88;
     }
   </style>
 </head>
@@ -130,113 +117,172 @@
   </header>
 
   <main>
-    <div class="demo-data">
-      <strong>DEMO MODE</strong><br>
-      Scanner working • Database connection needed for real data
-    </div>
-
     <div id="reader"></div>
     <button class="btn" onclick="startScanner()">
       <i class="ri-camera-line"></i> Start Scanner
     </button>
 
-    <h2>Recent Access Logs (Demo Data)</h2>
-    <table id="logTable">
+    <!-- Current Visitor Info -->
+    <div id="visitorInfo" class="visitor-info" style="display:none;">
+      <h3>📋 Visitor Information</h3>
+      <p><strong>Name:</strong> <span id="infoName"></span></p>
+      <p><strong>Contact:</strong> <span id="infoContact"></span></p>
+      <p><strong>School:</strong> <span id="infoSchool"></span></p>
+      <p><strong>Purpose:</strong> <span id="infoPurpose"></span></p>
+      <p><strong>Visit Date:</strong> <span id="infoDate"></span></p>
+    </div>
+
+    <div class="demo-section">
+      <h3>🎯 Sample QR Codes to Scan</h3>
+      <p>Copy this data and use any QR generator:</p>
+      <div style="text-align: left; background: #002244; padding: 10px; border-radius: 5px; font-size: 0.9rem;">
+        <strong>Visitor 1:</strong><br>
+        <code>{"unique_id":"VIS001","fullname":"Juan Dela Cruz","contact":"09171234567","school":"University of Manila","purpose":"Museum Tour","visit_date":"2024-01-15"}</code>
+        <br><br>
+        <strong>Visitor 2:</strong><br>
+        <code>{"unique_id":"VIS002","fullname":"Maria Santos","contact":"09179876543","school":"Philippine Science High School","purpose":"Educational Field Trip","visit_date":"2024-01-15"}</code>
+      </div>
+    </div>
+
+    <h2>Access Logs (Live)</h2>
+    <table>
       <thead>
         <tr>
-          <th>ID</th>
-          <th>Visitor</th>
-          <th>Unique ID</th>
-          <th>Action</th>
           <th>Time</th>
+          <th>Visitor Name</th>
+          <th>Contact</th>
+          <th>School</th>
+          <th>Action</th>
+          <th>Purpose</th>
         </tr>
       </thead>
       <tbody id="logBody">
-        <tr><td colspan="5" style="text-align:center; color:#777;">Loading demo data...</td></tr>
+        <tr><td colspan="6" style="text-align:center; color:#777;">No scans yet. Scan a QR code to see logs here.</td></tr>
       </tbody>
     </table>
   </main>
 
   <footer>
-    Museum Visitor Log & QR Scanner • Staff Access Only
+    Museum Visitor Log & QR Scanner • No Database Needed
   </footer>
 
-  <div id="popup" class="popup"></div>
-
   <script>
-  let html5QrcodeScanner;
+    let html5QrcodeScanner;
+    let accessLogs = [];
 
-  async function startScanner() {
-    const reader = document.getElementById("reader");
-    reader.innerHTML = "";
-    html5QrcodeScanner = new Html5Qrcode("reader");
+    // Start QR Scanner
+    async function startScanner() {
+      const reader = document.getElementById("reader");
+      reader.innerHTML = "";
+      html5QrcodeScanner = new Html5Qrcode("reader");
 
-    try {
-      await html5QrcodeScanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (decodedText) => handleScan(decodedText)
-      );
-    } catch (err) {
-      showPopup("⚠️ Camera access denied or not supported.", "error");
-    }
-  }
-
-  function handleScan(decodedText) {
-    if (html5QrcodeScanner) {
-      html5QrcodeScanner.stop();
+      try {
+        await html5QrcodeScanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: 250 },
+          (decodedText) => handleScan(decodedText)
+        );
+      } catch (err) {
+        alert("⚠️ Camera access denied or not supported.");
+      }
     }
 
-    let parsed;
-    try {
-      parsed = JSON.parse(decodedText);
-    } catch {
-      parsed = { unique_id: decodedText };
+    // Handle QR Scan
+    function handleScan(decodedText) {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop();
+      }
+
+      let visitorData;
+      try {
+        visitorData = JSON.parse(decodedText);
+        showVisitorInfo(visitorData);
+        addToAccessLogs(visitorData);
+      } catch {
+        // If not JSON, treat as simple ID
+        visitorData = {
+          unique_id: decodedText,
+          fullname: "Unknown Visitor",
+          contact: "N/A",
+          school: "N/A",
+          purpose: "N/A",
+          visit_date: new Date().toLocaleDateString()
+        };
+        showVisitorInfo(visitorData);
+        addToAccessLogs(visitorData);
+      }
     }
 
-    const unique_id = parsed.unique_id || decodedText;
+    // Show Visitor Information
+    function showVisitorInfo(visitor) {
+      document.getElementById('visitorInfo').style.display = 'block';
+      document.getElementById('infoName').textContent = visitor.fullname;
+      document.getElementById('infoContact').textContent = visitor.contact;
+      document.getElementById('infoSchool').textContent = visitor.school;
+      document.getElementById('infoPurpose').textContent = visitor.purpose;
+      document.getElementById('infoDate').textContent = visitor.visit_date;
+    }
 
-    // For GitHub Pages demo - simulate API call
-    showPopup("🔄 Processing scan: " + unique_id, "success");
-    document.getElementById("successSound").play();
-    
-    // Simulate API delay
-    setTimeout(() => {
-      showPopup("✅ Check-in successful for ID: " + unique_id, "success");
-      loadDemoLogs(); // Refresh the demo logs
-    }, 1000);
-  }
+    // Add to Access Logs
+    function addToAccessLogs(visitor) {
+      const timestamp = new Date().toLocaleString();
+      
+      // Check if this is check-in or check-out
+      const lastAction = accessLogs.find(log => log.unique_id === visitor.unique_id);
+      const action = lastAction ? 'check-out' : 'check-in';
+      
+      const logEntry = {
+        timestamp: timestamp,
+        fullname: visitor.fullname,
+        contact: visitor.contact,
+        school: visitor.school,
+        action: action,
+        purpose: visitor.purpose,
+        unique_id: visitor.unique_id
+      };
+      
+      accessLogs.unshift(logEntry); // Add to beginning of array
+      updateLogsTable();
+    }
 
-  function loadDemoLogs() {
-    // Demo data for GitHub Pages
-    const demoLogs = [
-      { id: 1, fullname: "Juan Dela Cruz", unique_id: "VIS001", action: "CHECK-IN", logged_at: "Just now" },
-      { id: 2, fullname: "Maria Santos", unique_id: "VIS002", action: "CHECK-OUT", logged_at: "2 mins ago" },
-      { id: 3, fullname: "Pedro Reyes", unique_id: "VIS003", action: "CHECK-IN", logged_at: "5 mins ago" },
-      { id: 4, fullname: "Ana Lopez", unique_id: "VIS004", action: "CHECK-IN", logged_at: "10 mins ago" }
-    ];
+    // Update Logs Table
+    function updateLogsTable() {
+      const tbody = document.getElementById('logBody');
+      
+      if (accessLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#777;">No scans yet.</td></tr>';
+        return;
+      }
 
-    const tbody = document.getElementById("logBody");
-    tbody.innerHTML = demoLogs.map(log => `
-      <tr>
-        <td>${log.id}</td>
-        <td>${log.fullname}</td>
-        <td>${log.unique_id}</td>
-        <td class="status-entry">${log.action}</td>
-        <td>${log.logged_at}</td>
-      </tr>
-    `).join("");
-  }
+      tbody.innerHTML = accessLogs.map(log => `
+        <tr>
+          <td>${log.timestamp}</td>
+          <td>${log.fullname}</td>
+          <td>${log.contact}</td>
+          <td>${log.school}</td>
+          <td class="${log.action}">${log.action.toUpperCase()}</td>
+          <td>${log.purpose}</td>
+        </tr>
+      `).join('');
+    }
 
-  function showPopup(message, type) {
-    const popup = document.getElementById("popup");
-    popup.className = `popup show ${type}`;
-    popup.textContent = message;
-    setTimeout(() => popup.classList.remove("show"), 3000);
-  }
+    // Add some sample logs on page load
+    window.onload = function() {
+      // Add sample initial logs
+      accessLogs = [
+        {
+          timestamp: new Date().toLocaleString(),
+          fullname: "Sample Visitor",
+          contact: "09170000000",
+          school: "Sample University",
+          action: "check-in",
+          purpose: "Testing",
+          unique_id: "SAMPLE001"
+        }
+      ];
+      updateLogsTable();
+    };
 
-  // Load demo data on page load
-  loadDemoLogs();
   </script>
 </body>
 </html>
