@@ -3,259 +3,472 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Staff Log Management</title>
+    <title>Staff Log Management | Museum Access Control</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
         body { 
-            font-family: Arial; 
-            background: #1a1a1a;
-            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #f8f9fa;
+            color: #2c3e50;
             min-height: 100vh;
+            line-height: 1.6;
         }
         header {
-            background: #002800;
-            color: #80ff80;
-            padding: 20px;
-            text-align: center;
-            border-bottom: 2px solid #00ff80;
+            background: linear-gradient(135deg, #1a331a 0%, #2d5a2d 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo i {
+            font-size: 24px;
+            color: #4CAF50;
+        }
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 600;
         }
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 30px 20px;
         }
-        .scanner-section {
-            background: #002000;
-            padding: 25px;
-            border-radius: 10px;
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            border: 1px solid #e9ecef;
+        }
+        .scanner-card {
+            grid-column: 1 / -1;
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
             margin-bottom: 20px;
-            border: 2px solid #00ff80;
-            text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .card-header i {
+            font-size: 20px;
+            color: #2d5a2d;
+        }
+        .card-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
         }
         #reader {
             width: 100%;
             max-width: 400px;
             margin: 0 auto;
-            border: 3px solid #00ff80;
-            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
         }
         .btn {
-            background: #00ff80;
-            color: #002000;
-            padding: 12px 25px;
+            background: #2d5a2d;
+            color: white;
+            padding: 12px 24px;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 16px;
-            margin: 10px;
-            font-weight: bold;
-            transition: all 0.3s;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         .btn:hover { 
-            background: #00cc66;
-            transform: translateY(-2px);
+            background: #1a331a;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(45, 90, 45, 0.2);
         }
-        .btn-stop { 
-            background: #ff4444;
-            color: white;
+        .btn-secondary {
+            background: #6c757d;
         }
-        .btn-stop:hover { background: #cc0000; }
-        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
         .visitor-info {
-            background: #003300;
+            background: #f8f9fa;
             padding: 20px;
             border-radius: 8px;
             margin: 20px 0;
             display: none;
-            text-align: left;
-            border-left: 4px solid #00ff80;
+            border-left: 4px solid #2d5a2d;
         }
-        
-        .logs-section {
-            background: #002000;
-            padding: 25px;
-            border-radius: 10px;
-            border: 2px solid #00ff80;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #004d00;
-        }
-        th {
-            background: #003300;
-            color: #80ff80;
-        }
-        tr:hover { background: #003800; }
-        
-        .check-in { 
-            color: #00ff80; 
-            font-weight: bold;
-        }
-        .check-out { 
-            color: #ff4444; 
-            font-weight: bold;
-        }
-        
-        .stats {
-            display: flex;
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
-            margin-bottom: 20px;
         }
-        .stat-card {
-            background: #002800;
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .info-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .info-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-checkin {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-checkout {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .manual-section {
+            background: #f8f9fa;
             padding: 20px;
             border-radius: 8px;
-            flex: 1;
+            margin: 20px 0;
             text-align: center;
-            border: 1px solid #00ff80;
+        }
+        .manual-input {
+            padding: 12px;
+            margin: 0 10px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            background: white;
+            color: #2c3e50;
+            width: 200px;
+            font-size: 14px;
+        }
+        .manual-input:focus {
+            outline: none;
+            border-color: #2d5a2d;
+            box-shadow: 0 0 0 2px rgba(45, 90, 45, 0.1);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid #e9ecef;
         }
         .stat-number {
             font-size: 32px;
-            font-weight: bold;
-            margin: 10px 0;
-            color: #00ff80;
+            font-weight: 700;
+            margin: 8px 0;
+            color: #2d5a2d;
         }
-        
-        /* Popup Styles */
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: #f8f9fa;
+            padding: 16px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 14px;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .action-badge {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
         .popup {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: #002000;
-            color: #00ff80;
-            padding: 15px 25px;
+            background: white;
+            color: #2c3e50;
+            padding: 16px 24px;
             border-radius: 8px;
-            border-left: 4px solid #00ff80;
-            box-shadow: 0 4px 12px rgba(0,255,128,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             display: none;
             z-index: 1000;
             animation: slideIn 0.3s ease;
+            border-left: 4px solid #2d5a2d;
+            max-width: 350px;
         }
-        
+        .popup.success {
+            border-left-color: #28a745;
+        }
+        .popup.error {
+            border-left-color: #dc3545;
+        }
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
-        
-        .manual-section {
-            background: #003300;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
+        .empty-state {
             text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
         }
-        .manual-input {
-            padding: 10px;
-            margin: 5px;
-            border: 1px solid #00ff80;
-            border-radius: 5px;
-            background: #002000;
-            color: white;
-            width: 200px;
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            color: #dee2e6;
+        }
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            .btn-group {
+                flex-direction: column;
+                align-items: center;
+            }
+            .btn {
+                width: 200px;
+                justify-content: center;
+            }
+            .manual-input {
+                width: 100%;
+                margin: 10px 0;
+            }
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>🎯 Staff Log Management</h1>
-        <p>Scan QR codes for visitor check-in/check-out</p>
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-landmark"></i>
+                <h1>Museum Access Control</h1>
+            </div>
+            <div class="header-info">
+                <span style="opacity: 0.9;">Staff Portal</span>
+            </div>
+        </div>
     </header>
 
     <div class="container">
         <!-- Statistics -->
-        <div class="stats">
+        <div class="stats-grid">
             <div class="stat-card">
-                <h3>👥 Registered Visitors</h3>
+                <div class="stat-label">Total Visitors</div>
                 <div class="stat-number" id="totalVisitors">0</div>
             </div>
             <div class="stat-card">
-                <h3>📝 Total Logs</h3>
+                <div class="stat-label">Access Logs</div>
                 <div class="stat-number" id="totalLogs">0</div>
             </div>
             <div class="stat-card">
-                <h3>✅ Checked In</h3>
+                <div class="stat-label">Checked In</div>
                 <div class="stat-number" id="checkedIn">0</div>
             </div>
         </div>
 
-        <!-- Scanner Section -->
-        <div class="scanner-section">
-            <h2>📷 QR Code Scanner</h2>
-            <div id="reader"></div>
-            <button class="btn" onclick="startScanner()">Start Scanner</button>
-            <button class="btn btn-stop" onclick="stopScanner()">Stop Scanner</button>
+        <div class="dashboard-grid">
+            <!-- Scanner Section -->
+            <div class="card scanner-card">
+                <div class="card-header">
+                    <i class="fas fa-qrcode"></i>
+                    <h2>QR Code Scanner</h2>
+                </div>
+                
+                <div id="reader"></div>
+                
+                <div class="btn-group">
+                    <button class="btn" onclick="startScanner()">
+                        <i class="fas fa-camera"></i>
+                        Start Scanner
+                    </button>
+                    <button class="btn btn-secondary" onclick="stopScanner()">
+                        <i class="fas fa-stop"></i>
+                        Stop Scanner
+                    </button>
+                </div>
 
-            <!-- Manual Input -->
-            <div class="manual-section">
-                <h4>🔧 Manual Entry</h4>
-                <input type="text" id="manualId" placeholder="Enter Visitor ID" class="manual-input">
-                <button class="btn" onclick="manualCheckIn()">Manual Check-in</button>
+                <!-- Manual Input -->
+                <div class="manual-section">
+                    <h3 style="margin-bottom: 15px; color: #6c757d;">Manual Entry</h3>
+                    <input type="text" id="manualId" placeholder="Enter Visitor ID" class="manual-input">
+                    <button class="btn" onclick="manualCheckIn()">
+                        <i class="fas fa-keyboard"></i>
+                        Manual Check-in
+                    </button>
+                </div>
+
+                <!-- Visitor Info Display -->
+                <div id="visitorInfo" class="visitor-info">
+                    <h3 style="margin-bottom: 15px; color: #2d5a2d;">Visitor Information</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Full Name</span>
+                            <span class="info-value" id="infoName">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Contact</span>
+                            <span class="info-value" id="infoContact">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">School/Company</span>
+                            <span class="info-value" id="infoSchool">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Purpose</span>
+                            <span class="info-value" id="infoPurpose">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Visit Date</span>
+                            <span class="info-value" id="infoDate">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Status</span>
+                            <span class="info-value">
+                                <span id="infoStatus" class="status-badge">-</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Visitor Info Display -->
-            <div id="visitorInfo" class="visitor-info">
-                <h3>✅ Visitor Information</h3>
-                <p><strong>Name:</strong> <span id="infoName"></span></p>
-                <p><strong>Contact:</strong> <span id="infoContact"></span></p>
-                <p><strong>School:</strong> <span id="infoSchool"></span></p>
-                <p><strong>Purpose:</strong> <span id="infoPurpose"></span></p>
-                <p><strong>Visit Date:</strong> <span id="infoDate"></span></p>
-                <p><strong>Status:</strong> <span id="infoStatus"></span></p>
+            <!-- Access Logs -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-clipboard-list"></i>
+                    <h2>Access Logs</h2>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Visitor Name</th>
+                                <th>Contact</th>
+                                <th>Action</th>
+                                <th>ID</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logBody">
+                            <tr>
+                                <td colspan="5">
+                                    <div class="empty-state">
+                                        <i class="fas fa-inbox"></i>
+                                        <p>No access logs recorded</p>
+                                        <small>Scan QR codes to see visitor logs</small>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
-
-        <!-- Access Logs -->
-        <div class="logs-section">
-            <h2>📋 Access Logs</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Visitor Name</th>
-                        <th>Contact</th>
-                        <th>School</th>
-                        <th>Action</th>
-                        <th>ID</th>
-                    </tr>
-                </thead>
-                <tbody id="logBody">
-                    <tr>
-                        <td colspan="6" style="text-align: center; padding: 30px; color: #80ff80;">
-                            No access logs yet. Scan QR codes to see logs here.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
         </div>
     </div>
 
-    <!-- Success Popup -->
+    <!-- Notification Popup -->
     <div class="popup" id="successPopup"></div>
 
     <script>
         let html5QrcodeScanner;
         let accessLogs = JSON.parse(localStorage.getItem('accessLogs')) || [];
 
-        // Sample visitor database - DITO LALAGAY ANG MGA NIREGISTER
+        // Visitor database
         let visitorDatabase = JSON.parse(localStorage.getItem('visitors')) || {
             "VIS001": {
                 fullname: "Juan Dela Cruz",
-                contact: "09171234567",
+                contact: "+63 917 123 4567",
                 school: "University of Manila",
                 purpose: "Museum Tour",
                 visit_date: "2024-01-15"
             },
             "VIS002": {
                 fullname: "Maria Santos",
-                contact: "09179876543",
+                contact: "+63 918 987 6543",
                 school: "Philippine Science High School",
                 purpose: "Educational Field Trip",
                 visit_date: "2024-01-15"
@@ -280,8 +493,9 @@
                     { fps: 10, qrbox: 250 },
                     handleScan
                 );
+                showNotification("Scanner activated successfully", "success");
             } catch (err) {
-                alert("📵 Camera error: " + err.message);
+                showNotification("Camera access denied or not available", "error");
             }
         }
 
@@ -289,30 +503,29 @@
         function stopScanner() {
             if (html5QrcodeScanner) {
                 html5QrcodeScanner.stop();
+                showNotification("Scanner stopped", "success");
             }
         }
 
         // Handle QR Scan
         function handleScan(decodedText) {
             stopScanner();
-            console.log("🔍 Scanned:", decodedText);
+            console.log("Scanned:", decodedText);
 
             let visitorData;
             try {
-                // Try to parse as JSON
                 visitorData = JSON.parse(decodedText);
-                showSuccessPopup("✅ QR code scanned successfully!");
+                showNotification("QR code scanned successfully", "success");
                 processVisitor(visitorData);
             } catch {
-                // If not JSON, lookup by ID
                 const scannedId = decodedText.trim();
                 if (visitorDatabase[scannedId]) {
                     visitorData = visitorDatabase[scannedId];
                     visitorData.unique_id = scannedId;
-                    showSuccessPopup("✅ Visitor found in database!");
+                    showNotification("Visitor identified in database", "success");
                     processVisitor(visitorData);
                 } else {
-                    showSuccessPopup("❌ Visitor not found: " + scannedId);
+                    showNotification("Visitor not found in system", "error");
                 }
             }
         }
@@ -321,18 +534,18 @@
         function manualCheckIn() {
             const manualId = document.getElementById('manualId').value.trim();
             if (!manualId) {
-                showSuccessPopup("❌ Please enter a visitor ID");
+                showNotification("Please enter a visitor ID", "error");
                 return;
             }
 
             if (visitorDatabase[manualId]) {
                 const visitorData = visitorDatabase[manualId];
                 visitorData.unique_id = manualId;
-                showSuccessPopup("✅ Manual check-in successful!");
+                showNotification("Manual check-in processed", "success");
                 processVisitor(visitorData);
                 document.getElementById('manualId').value = '';
             } else {
-                showSuccessPopup("❌ Visitor ID not found: " + manualId);
+                showNotification("Invalid visitor ID", "error");
             }
         }
 
@@ -340,11 +553,11 @@
         function processVisitor(visitorData) {
             // Show visitor info
             document.getElementById('visitorInfo').style.display = 'block';
-            document.getElementById('infoName').textContent = visitorData.fullname;
-            document.getElementById('infoContact').textContent = visitorData.contact;
+            document.getElementById('infoName').textContent = visitorData.fullname || 'Not provided';
+            document.getElementById('infoContact').textContent = visitorData.contact || 'Not provided';
             document.getElementById('infoSchool').textContent = visitorData.school || 'Not provided';
-            document.getElementById('infoPurpose').textContent = visitorData.purpose;
-            document.getElementById('infoDate').textContent = visitorData.visit_date;
+            document.getElementById('infoPurpose').textContent = visitorData.purpose || 'Not provided';
+            document.getElementById('infoDate').textContent = visitorData.visit_date || 'Not provided';
 
             // Determine action
             const lastLog = accessLogs.find(log => log.unique_id === visitorData.unique_id);
@@ -367,10 +580,12 @@
 
             // Update display
             document.getElementById('infoStatus').textContent = current_action.toUpperCase();
-            document.getElementById('infoStatus').className = current_action;
+            document.getElementById('infoStatus').className = `status-badge status-${current_action}`;
             
             updateStats();
             updateLogsTable();
+            
+            showNotification(`${current_action.toUpperCase()} successful for ${visitorData.fullname}`, "success");
         }
 
         // Update Statistics
@@ -397,8 +612,12 @@
             if (accessLogs.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="6" style="text-align: center; padding: 30px; color: #80ff80;">
-                            No access logs yet. Scan QR codes to see logs here.
+                        <td colspan="5">
+                            <div class="empty-state">
+                                <i class="fas fa-inbox"></i>
+                                <p>No access logs recorded</p>
+                                <small>Scan QR codes to see visitor logs</small>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -407,66 +626,32 @@
 
             tbody.innerHTML = accessLogs.map(log => `
                 <tr>
-                    <td>${new Date(log.logged_at).toLocaleString()}</td>
-                    <td>${log.fullname}</td>
+                    <td>${new Date(log.logged_at).toLocaleTimeString()}</td>
+                    <td><strong>${log.fullname}</strong></td>
                     <td>${log.contact}</td>
-                    <td>${log.school}</td>
-                    <td class="${log.action}">${log.action.toUpperCase()}</td>
+                    <td>
+                        <span class="action-badge status-${log.action}">
+                            ${log.action.toUpperCase()}
+                        </span>
+                    </td>
                     <td><code>${log.unique_id}</code></td>
                 </tr>
             `).join('');
         }
 
-        // Show Success Popup
-        function showSuccessPopup(message) {
+        // Show Notification
+        function showNotification(message, type) {
             const popup = document.getElementById('successPopup');
             popup.textContent = message;
+            popup.className = `popup ${type}`;
             popup.style.display = 'block';
             setTimeout(() => {
                 popup.style.display = 'none';
-            }, 3000);
-        }
-
-        // Add sample visitor (for testing)
-        function addSampleVisitor() {
-            const id = prompt("Enter Visitor ID:");
-            if (id && !visitorDatabase[id]) {
-                visitorDatabase[id] = {
-                    fullname: prompt("Full Name:") || "Sample Visitor",
-                    contact: prompt("Contact:") || "09170000000",
-                    school: prompt("School:") || "Sample University",
-                    purpose: prompt("Purpose:") || "Visit",
-                    visit_date: new Date().toISOString().split('T')[0]
-                };
-                localStorage.setItem('visitors', JSON.stringify(visitorDatabase));
-                updateStats();
-                showSuccessPopup(`✅ Visitor ${id} added!`);
-            }
-        }
-
-        // Clear all logs
-        function clearAllLogs() {
-            if (confirm('Clear all access logs?')) {
-                accessLogs = [];
-                localStorage.setItem('accessLogs', JSON.stringify(accessLogs));
-                updateStats();
-                updateLogsTable();
-                showSuccessPopup('🗑️ All logs cleared');
-            }
+            }, 4000);
         }
 
         // Initialize on load
         document.addEventListener('DOMContentLoaded', initialize);
     </script>
-
-    <!-- Hidden admin buttons -->
-    <div style="position: fixed; bottom: 10px; right: 10px;">
-        <button onclick="addSampleVisitor()" style="background: #666; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px; margin: 2px;">
-            + Add Visitor
-        </button>
-        <button onclick="clearAllLogs()" style="background: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px; margin: 2px;">
-            Clear Logs
-        </button>
-    </div>
 </body>
 </html>
