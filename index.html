@@ -1,266 +1,472 @@
-<?php
-session_start();
-require 'config.php';
-
-// Simple staff session
-if (!isset($_SESSION['staff_logged_in'])) {
-    $_SESSION['staff_logged_in'] = true;
-}
-
-// Get all registered visitors
-$visitors_result = $conn->query("SELECT * FROM visitors ORDER BY created_at DESC");
-$visitors_data = [];
-if ($visitors_result) {
-    while($visitor = $visitors_result->fetch_assoc()) {
-        $visitors_data[$visitor['unique_id']] = $visitor;
-    }
-}
-
-// Get access logs
-$logs_result = $conn->query("
-    SELECT al.*, v.contact, v.school, v.visit_date, v.purpose 
-    FROM access_logs al 
-    LEFT JOIN visitors v ON al.visitor_id = v.id 
-    ORDER BY al.logged_at DESC 
-    LIMIT 50
-");
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Staff Log Management</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: #f5f5f5;
-    }
-    header {
-      background: #2c3e50;
-      color: white;
-      padding: 20px;
-      text-align: center;
-    }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .scanner-section {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-    #reader {
-      width: 100%;
-      max-width: 400px;
-      margin: 0 auto;
-      border: 3px solid #3498db;
-      border-radius: 10px;
-    }
-    .btn {
-      background: #3498db;
-      color: white;
-      padding: 12px 25px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-      margin: 10px;
-    }
-    .btn:hover {
-      background: #2980b9;
-    }
-    .visitor-info {
-      background: #e8f4fc;
-      padding: 15px;
-      border-radius: 8px;
-      margin: 15px 0;
-      display: none;
-    }
-    .logs-section {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
-    th, td {
-      padding: 12px;
-      text-align: left;
-      border-bottom: 1px solid #ddd;
-    }
-    th {
-      background: #34495e;
-      color: white;
-    }
-    .check-in { color: #27ae60; font-weight: bold; }
-    .check-out { color: #e74c3c; font-weight: bold; }
-    .stats {
-      display: flex;
-      gap: 15px;
-      margin-bottom: 20px;
-    }
-    .stat-card {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      flex: 1;
-      text-align: center;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Log Management</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: Arial; 
+            background: #1a1a1a;
+            color: white;
+            min-height: 100vh;
+        }
+        header {
+            background: #002800;
+            color: #80ff80;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid #00ff80;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .scanner-section {
+            background: #002000;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 2px solid #00ff80;
+            text-align: center;
+        }
+        #reader {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            border: 3px solid #00ff80;
+            border-radius: 10px;
+        }
+        .btn {
+            background: #00ff80;
+            color: #002000;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn:hover { 
+            background: #00cc66;
+            transform: translateY(-2px);
+        }
+        .btn-stop { 
+            background: #ff4444;
+            color: white;
+        }
+        .btn-stop:hover { background: #cc0000; }
+        
+        .visitor-info {
+            background: #003300;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+            text-align: left;
+            border-left: 4px solid #00ff80;
+        }
+        
+        .logs-section {
+            background: #002000;
+            padding: 25px;
+            border-radius: 10px;
+            border: 2px solid #00ff80;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #004d00;
+        }
+        th {
+            background: #003300;
+            color: #80ff80;
+        }
+        tr:hover { background: #003800; }
+        
+        .check-in { 
+            color: #00ff80; 
+            font-weight: bold;
+        }
+        .check-out { 
+            color: #ff4444; 
+            font-weight: bold;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #002800;
+            padding: 20px;
+            border-radius: 8px;
+            flex: 1;
+            text-align: center;
+            border: 1px solid #00ff80;
+        }
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #00ff80;
+        }
+        
+        /* Popup Styles */
+        .popup {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #002000;
+            color: #00ff80;
+            padding: 15px 25px;
+            border-radius: 8px;
+            border-left: 4px solid #00ff80;
+            box-shadow: 0 4px 12px rgba(0,255,128,0.3);
+            display: none;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .manual-section {
+            background: #003300;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        .manual-input {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #00ff80;
+            border-radius: 5px;
+            background: #002000;
+            color: white;
+            width: 200px;
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <h1>🎯 Staff Log Management</h1>
-    <p>Scan visitor QR codes for check-in/check-out</p>
-  </header>
+    <header>
+        <h1>🎯 Staff Log Management</h1>
+        <p>Scan QR codes for visitor check-in/check-out</p>
+    </header>
 
-  <div class="container">
-    <div class="stats">
-      <div class="stat-card">
-        <h3>📊 Registered Visitors</h3>
-        <p style="font-size: 24px; font-weight: bold; color: #3498db;"><?php echo count($visitors_data); ?></p>
-      </div>
-      <div class="stat-card">
-        <h3>📝 Total Logs</h3>
-        <p style="font-size: 24px; font-weight: bold; color: #e74c3c;"><?php echo $logs_result ? $logs_result->num_rows : 0; ?></p>
-      </div>
+    <div class="container">
+        <!-- Statistics -->
+        <div class="stats">
+            <div class="stat-card">
+                <h3>👥 Registered Visitors</h3>
+                <div class="stat-number" id="totalVisitors">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>📝 Total Logs</h3>
+                <div class="stat-number" id="totalLogs">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>✅ Checked In</h3>
+                <div class="stat-number" id="checkedIn">0</div>
+            </div>
+        </div>
+
+        <!-- Scanner Section -->
+        <div class="scanner-section">
+            <h2>📷 QR Code Scanner</h2>
+            <div id="reader"></div>
+            <button class="btn" onclick="startScanner()">Start Scanner</button>
+            <button class="btn btn-stop" onclick="stopScanner()">Stop Scanner</button>
+
+            <!-- Manual Input -->
+            <div class="manual-section">
+                <h4>🔧 Manual Entry</h4>
+                <input type="text" id="manualId" placeholder="Enter Visitor ID" class="manual-input">
+                <button class="btn" onclick="manualCheckIn()">Manual Check-in</button>
+            </div>
+
+            <!-- Visitor Info Display -->
+            <div id="visitorInfo" class="visitor-info">
+                <h3>✅ Visitor Information</h3>
+                <p><strong>Name:</strong> <span id="infoName"></span></p>
+                <p><strong>Contact:</strong> <span id="infoContact"></span></p>
+                <p><strong>School:</strong> <span id="infoSchool"></span></p>
+                <p><strong>Purpose:</strong> <span id="infoPurpose"></span></p>
+                <p><strong>Visit Date:</strong> <span id="infoDate"></span></p>
+                <p><strong>Status:</strong> <span id="infoStatus"></span></p>
+            </div>
+        </div>
+
+        <!-- Access Logs -->
+        <div class="logs-section">
+            <h2>📋 Access Logs</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Visitor Name</th>
+                        <th>Contact</th>
+                        <th>School</th>
+                        <th>Action</th>
+                        <th>ID</th>
+                    </tr>
+                </thead>
+                <tbody id="logBody">
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 30px; color: #80ff80;">
+                            No access logs yet. Scan QR codes to see logs here.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <div class="scanner-section">
-      <h2>📷 QR Code Scanner</h2>
-      <div id="reader"></div>
-      <button class="btn" onclick="startScanner()">Start Scanner</button>
-      <button class="btn" onclick="stopScanner()" style="background: #e74c3c;">Stop Scanner</button>
+    <!-- Success Popup -->
+    <div class="popup" id="successPopup"></div>
 
-      <div id="visitorInfo" class="visitor-info">
-        <h3>✅ Visitor Information</h3>
-        <p><strong>Name:</strong> <span id="infoName"></span></p>
-        <p><strong>Contact:</strong> <span id="infoContact"></span></p>
-        <p><strong>School:</strong> <span id="infoSchool"></span></p>
-        <p><strong>Purpose:</strong> <span id="infoPurpose"></span></p>
-        <p><strong>Visit Date:</strong> <span id="infoDate"></span></p>
-      </div>
+    <script>
+        let html5QrcodeScanner;
+        let accessLogs = JSON.parse(localStorage.getItem('accessLogs')) || [];
+
+        // Sample visitor database - DITO LALAGAY ANG MGA NIREGISTER
+        let visitorDatabase = JSON.parse(localStorage.getItem('visitors')) || {
+            "VIS001": {
+                fullname: "Juan Dela Cruz",
+                contact: "09171234567",
+                school: "University of Manila",
+                purpose: "Museum Tour",
+                visit_date: "2024-01-15"
+            },
+            "VIS002": {
+                fullname: "Maria Santos",
+                contact: "09179876543",
+                school: "Philippine Science High School",
+                purpose: "Educational Field Trip",
+                visit_date: "2024-01-15"
+            }
+        };
+
+        // Initialize
+        function initialize() {
+            updateStats();
+            updateLogsTable();
+        }
+
+        // Start QR Scanner
+        async function startScanner() {
+            const reader = document.getElementById("reader");
+            reader.innerHTML = "";
+            
+            try {
+                html5QrcodeScanner = new Html5Qrcode("reader");
+                await html5QrcodeScanner.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: 250 },
+                    handleScan
+                );
+            } catch (err) {
+                alert("📵 Camera error: " + err.message);
+            }
+        }
+
+        // Stop Scanner
+        function stopScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop();
+            }
+        }
+
+        // Handle QR Scan
+        function handleScan(decodedText) {
+            stopScanner();
+            console.log("🔍 Scanned:", decodedText);
+
+            let visitorData;
+            try {
+                // Try to parse as JSON
+                visitorData = JSON.parse(decodedText);
+                showSuccessPopup("✅ QR code scanned successfully!");
+                processVisitor(visitorData);
+            } catch {
+                // If not JSON, lookup by ID
+                const scannedId = decodedText.trim();
+                if (visitorDatabase[scannedId]) {
+                    visitorData = visitorDatabase[scannedId];
+                    visitorData.unique_id = scannedId;
+                    showSuccessPopup("✅ Visitor found in database!");
+                    processVisitor(visitorData);
+                } else {
+                    showSuccessPopup("❌ Visitor not found: " + scannedId);
+                }
+            }
+        }
+
+        // Manual Check-in
+        function manualCheckIn() {
+            const manualId = document.getElementById('manualId').value.trim();
+            if (!manualId) {
+                showSuccessPopup("❌ Please enter a visitor ID");
+                return;
+            }
+
+            if (visitorDatabase[manualId]) {
+                const visitorData = visitorDatabase[manualId];
+                visitorData.unique_id = manualId;
+                showSuccessPopup("✅ Manual check-in successful!");
+                processVisitor(visitorData);
+                document.getElementById('manualId').value = '';
+            } else {
+                showSuccessPopup("❌ Visitor ID not found: " + manualId);
+            }
+        }
+
+        // Process Visitor
+        function processVisitor(visitorData) {
+            // Show visitor info
+            document.getElementById('visitorInfo').style.display = 'block';
+            document.getElementById('infoName').textContent = visitorData.fullname;
+            document.getElementById('infoContact').textContent = visitorData.contact;
+            document.getElementById('infoSchool').textContent = visitorData.school || 'Not provided';
+            document.getElementById('infoPurpose').textContent = visitorData.purpose;
+            document.getElementById('infoDate').textContent = visitorData.visit_date;
+
+            // Determine action
+            const lastLog = accessLogs.find(log => log.unique_id === visitorData.unique_id);
+            const current_action = lastLog?.action === 'check-in' ? 'check-out' : 'check-in';
+
+            // Create log entry
+            const newLog = {
+                id: accessLogs.length > 0 ? Math.max(...accessLogs.map(l => l.id)) + 1 : 1,
+                fullname: visitorData.fullname,
+                contact: visitorData.contact,
+                school: visitorData.school,
+                action: current_action,
+                unique_id: visitorData.unique_id,
+                logged_at: new Date().toISOString()
+            };
+
+            // Save to local storage
+            accessLogs.unshift(newLog);
+            localStorage.setItem('accessLogs', JSON.stringify(accessLogs));
+
+            // Update display
+            document.getElementById('infoStatus').textContent = current_action.toUpperCase();
+            document.getElementById('infoStatus').className = current_action;
+            
+            updateStats();
+            updateLogsTable();
+        }
+
+        // Update Statistics
+        function updateStats() {
+            document.getElementById('totalVisitors').textContent = Object.keys(visitorDatabase).length;
+            document.getElementById('totalLogs').textContent = accessLogs.length;
+            
+            const checkedIn = accessLogs.filter(log => 
+                log.action === 'check-in' && 
+                !accessLogs.some(laterLog => 
+                    laterLog.unique_id === log.unique_id && 
+                    laterLog.logged_at > log.logged_at && 
+                    laterLog.action === 'check-out'
+                )
+            ).length;
+            
+            document.getElementById('checkedIn').textContent = checkedIn;
+        }
+
+        // Update Logs Table
+        function updateLogsTable() {
+            const tbody = document.getElementById('logBody');
+            
+            if (accessLogs.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 30px; color: #80ff80;">
+                            No access logs yet. Scan QR codes to see logs here.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = accessLogs.map(log => `
+                <tr>
+                    <td>${new Date(log.logged_at).toLocaleString()}</td>
+                    <td>${log.fullname}</td>
+                    <td>${log.contact}</td>
+                    <td>${log.school}</td>
+                    <td class="${log.action}">${log.action.toUpperCase()}</td>
+                    <td><code>${log.unique_id}</code></td>
+                </tr>
+            `).join('');
+        }
+
+        // Show Success Popup
+        function showSuccessPopup(message) {
+            const popup = document.getElementById('successPopup');
+            popup.textContent = message;
+            popup.style.display = 'block';
+            setTimeout(() => {
+                popup.style.display = 'none';
+            }, 3000);
+        }
+
+        // Add sample visitor (for testing)
+        function addSampleVisitor() {
+            const id = prompt("Enter Visitor ID:");
+            if (id && !visitorDatabase[id]) {
+                visitorDatabase[id] = {
+                    fullname: prompt("Full Name:") || "Sample Visitor",
+                    contact: prompt("Contact:") || "09170000000",
+                    school: prompt("School:") || "Sample University",
+                    purpose: prompt("Purpose:") || "Visit",
+                    visit_date: new Date().toISOString().split('T')[0]
+                };
+                localStorage.setItem('visitors', JSON.stringify(visitorDatabase));
+                updateStats();
+                showSuccessPopup(`✅ Visitor ${id} added!`);
+            }
+        }
+
+        // Clear all logs
+        function clearAllLogs() {
+            if (confirm('Clear all access logs?')) {
+                accessLogs = [];
+                localStorage.setItem('accessLogs', JSON.stringify(accessLogs));
+                updateStats();
+                updateLogsTable();
+                showSuccessPopup('🗑️ All logs cleared');
+            }
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+
+    <!-- Hidden admin buttons -->
+    <div style="position: fixed; bottom: 10px; right: 10px;">
+        <button onclick="addSampleVisitor()" style="background: #666; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px; margin: 2px;">
+            + Add Visitor
+        </button>
+        <button onclick="clearAllLogs()" style="background: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px; margin: 2px;">
+            Clear Logs
+        </button>
     </div>
-
-    <div class="logs-section">
-      <h2>📋 Recent Access Logs</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Visitor Name</th>
-            <th>Contact</th>
-            <th>School</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php if ($logs_result && $logs_result->num_rows > 0): ?>
-            <?php while($log = $logs_result->fetch_assoc()): ?>
-            <tr>
-              <td><?= date('M j, g:i A', strtotime($log['logged_at'])) ?></td>
-              <td><?= htmlspecialchars($log['fullname']) ?></td>
-              <td><?= htmlspecialchars($log['contact']) ?></td>
-              <td><?= htmlspecialchars($log['school']) ?></td>
-              <td class="<?= $log['action'] ?>"><?= strtoupper($log['action']) ?></td>
-            </tr>
-            <?php endwhile; ?>
-          <?php else: ?>
-            <tr>
-              <td colspan="5" style="text-align: center; padding: 20px; color: #777;">
-                No access logs found. Scan QR codes to see logs here.
-              </td>
-            </tr>
-          <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <script>
-  let html5QrcodeScanner;
-  const visitorDatabase = <?php echo json_encode($visitors_data); ?>;
-
-  async function startScanner() {
-    const reader = document.getElementById("reader");
-    reader.innerHTML = "";
-    
-    try {
-      html5QrcodeScanner = new Html5Qrcode("reader");
-      await html5QrcodeScanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        handleScan
-      );
-    } catch (err) {
-      alert("Camera error: " + err);
-    }
-  }
-
-  function stopScanner() {
-    if (html5QrcodeScanner) {
-      html5QrcodeScanner.stop();
-    }
-  }
-
-  function handleScan(decodedText) {
-    if (html5QrcodeScanner) {
-      html5QrcodeScanner.stop();
-    }
-
-    console.log("Scanned:", decodedText);
-
-    let visitorData;
-    try {
-      visitorData = JSON.parse(decodedText);
-    } catch {
-      const scannedId = decodedText.trim();
-      if (visitorDatabase[scannedId]) {
-        visitorData = visitorDatabase[scannedId];
-      } else {
-        alert("❌ Visitor not found: " + scannedId);
-        return;
-      }
-    }
-
-    // Show visitor info
-    document.getElementById('visitorInfo').style.display = 'block';
-    document.getElementById('infoName').textContent = visitorData.fullname;
-    document.getElementById('infoContact').textContent = visitorData.contact;
-    document.getElementById('infoSchool').textContent = visitorData.school || 'Not provided';
-    document.getElementById('infoPurpose').textContent = visitorData.purpose;
-    document.getElementById('infoDate').textContent = visitorData.visit_date;
-
-    // Send to server
-    fetch("api_scan.php", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        unique_id: visitorData.unique_id,
-        fullname: visitorData.fullname 
-      })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        alert("✅ " + data.message + " - " + visitorData.fullname);
-        setTimeout(() => location.reload(), 1000);
-      } else {
-        alert("❌ " + data.message);
-      }
-    });
-  }
-  </script>
 </body>
 </html>
