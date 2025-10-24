@@ -7,6 +7,9 @@
   <script src="https://unpkg.com/html5-qrcode"></script>
   <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 
+  <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+  <audio id="errorSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
   <style>
     body {
       margin: 0;
@@ -21,10 +24,10 @@
       color: #80ff80;
       font-size: 1.3rem;
       box-shadow: 0 2px 8px rgba(0,255,128,0.1);
+      position: relative;
     }
     main {
       padding: 15px;
-      text-align: center;
     }
     #reader {
       width: 100%;
@@ -35,7 +38,7 @@
       overflow: hidden;
     }
     .btn {
-      margin-top: 12px;
+      margin: 12px auto;
       background-color: #00ff80;
       border: none;
       padding: 10px 16px;
@@ -43,6 +46,7 @@
       font-weight: bold;
       cursor: pointer;
       color: #002000;
+      display: block;
     }
     .btn:hover {
       background-color: #00cc66;
@@ -51,6 +55,7 @@
       color: #aaffaa;
       font-size: 1.2rem;
       margin-top: 25px;
+      text-align: center;
     }
     table {
       width: 100%;
@@ -64,31 +69,30 @@
       padding: 10px;
       border-bottom: 1px solid #004d00;
       text-align: left;
+      font-size: 0.85rem;
     }
     th {
       background-color: #003300;
       color: #aaffaa;
       text-transform: uppercase;
-      font-size: 0.8rem;
     }
     tr:hover {
       background-color: #003800;
     }
+    .status-entry {
+      font-weight: bold;
+    }
     .check-in { 
       color: #00ff80; 
-      font-weight: bold;
     }
     .check-out { 
       color: #ff4444; 
-      font-weight: bold;
     }
-    .visitor-info {
-      background: #003300;
-      padding: 15px;
-      margin: 15px 0;
-      border-radius: 8px;
-      text-align: left;
-      border-left: 4px solid #00ff80;
+    footer {
+      text-align: center;
+      color: #559955;
+      margin: 20px 0;
+      font-size: 0.85rem;
     }
     .popup {
       position: fixed;
@@ -96,17 +100,47 @@
       right: 30px;
       background-color: #002000;
       color: #fff;
-      border-left: 6px solid #00ff80;
+      border-left: 6px solid;
       padding: 15px 20px;
       border-radius: 10px;
       box-shadow: 0 4px 10px rgba(0, 255, 100, 0.2);
       font-weight: 500;
+      opacity: 0;
+      transform: translateY(-20px);
+      transition: all 0.4s ease;
+      z-index: 9999;
     }
-    .demo-section {
-      background: #004477;
+    .popup.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .popup.success {
+      border-color: #00ff80;
+    }
+    .popup.error {
+      border-color: #ff4040;
+    }
+    .visitor-info {
+      background: #003300;
       padding: 15px;
       margin: 15px 0;
       border-radius: 8px;
+      border-left: 4px solid #00ff80;
+    }
+    .demo-notice {
+      background: #004477;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 8px;
+      color: #88ccff;
+      text-align: center;
+    }
+    .format-info {
+      background: #005500;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 8px;
+      font-size: 0.8rem;
     }
   </style>
 </head>
@@ -117,12 +151,22 @@
   </header>
 
   <main>
+    <div class="demo-notice">
+      <strong>📱 QR SCANNER READY</strong> - Scan any QR code from your generator
+    </div>
+
+    <div class="format-info">
+      <strong>📝 QR Code Format Supported:</strong><br>
+      • JSON: <code>{"unique_id":"123","fullname":"Juan","contact":"0917...","school":"University","purpose":"Visit"}</code><br>
+      • Plain Text: <code>VISITOR_ID</code> (will lookup in database)
+    </div>
+
     <div id="reader"></div>
     <button class="btn" onclick="startScanner()">
       <i class="ri-camera-line"></i> Start Scanner
     </button>
 
-    <!-- Current Visitor Info -->
+    <!-- Visitor Info Display -->
     <div id="visitorInfo" class="visitor-info" style="display:none;">
       <h3>📋 Visitor Information</h3>
       <p><strong>Name:</strong> <span id="infoName"></span></p>
@@ -130,159 +174,227 @@
       <p><strong>School:</strong> <span id="infoSchool"></span></p>
       <p><strong>Purpose:</strong> <span id="infoPurpose"></span></p>
       <p><strong>Visit Date:</strong> <span id="infoDate"></span></p>
+      <p><strong>Unique ID:</strong> <span id="infoId"></span></p>
     </div>
 
-    <div class="demo-section">
-      <h3>🎯 Sample QR Codes to Scan</h3>
-      <p>Copy this data and use any QR generator:</p>
-      <div style="text-align: left; background: #002244; padding: 10px; border-radius: 5px; font-size: 0.9rem;">
-        <strong>Visitor 1:</strong><br>
-        <code>{"unique_id":"VIS001","fullname":"Juan Dela Cruz","contact":"09171234567","school":"University of Manila","purpose":"Museum Tour","visit_date":"2024-01-15"}</code>
-        <br><br>
-        <strong>Visitor 2:</strong><br>
-        <code>{"unique_id":"VIS002","fullname":"Maria Santos","contact":"09179876543","school":"Philippine Science High School","purpose":"Educational Field Trip","visit_date":"2024-01-15"}</code>
-      </div>
-    </div>
-
-    <h2>Access Logs (Live)</h2>
+    <h2>Access Logs</h2>
     <table>
       <thead>
         <tr>
           <th>Time</th>
           <th>Visitor Name</th>
+          <th>Unique ID</th>
+          <th>Action</th>
           <th>Contact</th>
           <th>School</th>
-          <th>Action</th>
-          <th>Purpose</th>
         </tr>
       </thead>
       <tbody id="logBody">
-        <tr><td colspan="6" style="text-align:center; color:#777;">No scans yet. Scan a QR code to see logs here.</td></tr>
+        <tr><td colspan="6" style="text-align:center; color:#777;">No scans yet</td></tr>
       </tbody>
     </table>
   </main>
 
   <footer>
-    Museum Visitor Log & QR Scanner • No Database Needed
+    Museum Visitor Log & QR Scanner • Local Storage
   </footer>
 
+  <!-- Popup Container -->
+  <div id="popup" class="popup"></div>
+
   <script>
-    let html5QrcodeScanner;
-    let accessLogs = [];
+  let html5QrcodeScanner;
+  let accessLogs = JSON.parse(localStorage.getItem('accessLogs')) || [];
 
-    // Start QR Scanner
-    async function startScanner() {
-      const reader = document.getElementById("reader");
-      reader.innerHTML = "";
+  // Visitor Database - dito ilalagay ang mga naka-register na visitors
+  const visitorDatabase = {
+    // Sample data - palitan mo ng actual data from your QR generator
+    "VIS001": {
+      fullname: "Juan Dela Cruz",
+      contact: "09171234567",
+      school: "University of Manila",
+      purpose: "Museum Tour",
+      visit_date: "2024-01-15"
+    },
+    "VIS002": {
+      fullname: "Maria Santos",
+      contact: "09179876543",
+      school: "Philippine Science High School",
+      purpose: "Educational Field Trip", 
+      visit_date: "2024-01-15"
+    }
+    // Add more visitors from your QR generator here
+  };
+
+  // Initialize data
+  function initializeData() {
+    updateLogsTable();
+  }
+
+  // Start QR Scanner
+  async function startScanner() {
+    const reader = document.getElementById("reader");
+    reader.innerHTML = "";
+    
+    try {
       html5QrcodeScanner = new Html5Qrcode("reader");
+      
+      await html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (decodedText) => handleScan(decodedText)
+      );
+    } catch (err) {
+      showPopup("⚠️ Camera access denied or not supported.", "error");
+    }
+  }
 
-      try {
-        await html5QrcodeScanner.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: 250 },
-          (decodedText) => handleScan(decodedText)
-        );
-      } catch (err) {
-        alert("⚠️ Camera access denied or not supported.");
-      }
+  // Handle QR Scan - FLEXIBLE FORMAT SUPPORT
+  function handleScan(decodedText) {
+    if (html5QrcodeScanner) {
+      html5QrcodeScanner.stop();
     }
 
-    // Handle QR Scan
-    function handleScan(decodedText) {
-      if (html5QrcodeScanner) {
-        html5QrcodeScanner.stop();
-      }
+    console.log("Scanned data:", decodedText); // For debugging
 
-      let visitorData;
-      try {
-        visitorData = JSON.parse(decodedText);
-        showVisitorInfo(visitorData);
-        addToAccessLogs(visitorData);
-      } catch {
-        // If not JSON, treat as simple ID
+    let visitorData;
+    
+    try {
+      // Try to parse as JSON first (if your QR generator uses JSON)
+      visitorData = JSON.parse(decodedText);
+      showPopup("✅ JSON data detected", "success");
+    } catch {
+      // If not JSON, check if it's a simple ID
+      const scannedId = decodedText.trim();
+      
+      // Lookup in database
+      if (visitorDatabase[scannedId]) {
         visitorData = {
-          unique_id: decodedText,
-          fullname: "Unknown Visitor",
-          contact: "N/A",
-          school: "N/A",
-          purpose: "N/A",
-          visit_date: new Date().toLocaleDateString()
+          unique_id: scannedId,
+          ...visitorDatabase[scannedId]
         };
-        showVisitorInfo(visitorData);
-        addToAccessLogs(visitorData);
+        showPopup("✅ ID lookup successful", "success");
+      } else {
+        // If not in database, create new entry
+        visitorData = {
+          unique_id: scannedId,
+          fullname: "Scanned Visitor (" + scannedId + ")",
+          contact: "Not provided",
+          school: "Not provided", 
+          purpose: "Not provided",
+          visit_date: new Date().toISOString().split('T')[0]
+        };
+        showPopup("🆕 New visitor created from ID", "success");
       }
     }
 
-    // Show Visitor Information
-    function showVisitorInfo(visitor) {
-      document.getElementById('visitorInfo').style.display = 'block';
-      document.getElementById('infoName').textContent = visitor.fullname;
-      document.getElementById('infoContact').textContent = visitor.contact;
-      document.getElementById('infoSchool').textContent = visitor.school;
-      document.getElementById('infoPurpose').textContent = visitor.purpose;
-      document.getElementById('infoDate').textContent = visitor.visit_date;
-    }
+    // Process the scan
+    processScan(visitorData);
+  }
 
-    // Add to Access Logs
-    function addToAccessLogs(visitor) {
-      const timestamp = new Date().toLocaleString();
-      
-      // Check if this is check-in or check-out
-      const lastAction = accessLogs.find(log => log.unique_id === visitor.unique_id);
-      const action = lastAction ? 'check-out' : 'check-in';
-      
-      const logEntry = {
-        timestamp: timestamp,
-        fullname: visitor.fullname,
-        contact: visitor.contact,
-        school: visitor.school,
-        action: action,
-        purpose: visitor.purpose,
-        unique_id: visitor.unique_id
-      };
-      
-      accessLogs.unshift(logEntry); // Add to beginning of array
-      updateLogsTable();
-    }
+  // Process the scanned data
+  function processScan(visitorData) {
+    // Show visitor information
+    document.getElementById('visitorInfo').style.display = 'block';
+    document.getElementById('infoName').textContent = visitorData.fullname || "Unknown";
+    document.getElementById('infoContact').textContent = visitorData.contact || "Not provided";
+    document.getElementById('infoSchool').textContent = visitorData.school || "Not provided";
+    document.getElementById('infoPurpose').textContent = visitorData.purpose || "Not provided";
+    document.getElementById('infoDate').textContent = visitorData.visit_date || new Date().toISOString().split('T')[0];
+    document.getElementById('infoId').textContent = visitorData.unique_id;
 
-    // Update Logs Table
-    function updateLogsTable() {
-      const tbody = document.getElementById('logBody');
-      
-      if (accessLogs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#777;">No scans yet.</td></tr>';
-        return;
-      }
+    // Determine action (check-in/check-out)
+    const lastLog = accessLogs.find(log => log.unique_id === visitorData.unique_id);
+    const current_action = lastLog?.action === 'check-in' ? 'check-out' : 'check-in';
 
-      tbody.innerHTML = accessLogs.map(log => `
-        <tr>
-          <td>${log.timestamp}</td>
-          <td>${log.fullname}</td>
-          <td>${log.contact}</td>
-          <td>${log.school}</td>
-          <td class="${log.action}">${log.action.toUpperCase()}</td>
-          <td>${log.purpose}</td>
-        </tr>
-      `).join('');
-    }
-
-    // Add some sample logs on page load
-    window.onload = function() {
-      // Add sample initial logs
-      accessLogs = [
-        {
-          timestamp: new Date().toLocaleString(),
-          fullname: "Sample Visitor",
-          contact: "09170000000",
-          school: "Sample University",
-          action: "check-in",
-          purpose: "Testing",
-          unique_id: "SAMPLE001"
-        }
-      ];
-      updateLogsTable();
+    // Create new log entry
+    const newLog = {
+      id: accessLogs.length > 0 ? Math.max(...accessLogs.map(l => l.id)) + 1 : 1,
+      fullname: visitorData.fullname,
+      unique_id: visitorData.unique_id,
+      action: current_action,
+      contact: visitorData.contact,
+      school: visitorData.school,
+      logged_at: new Date().toISOString()
     };
 
+    // Save to local storage
+    accessLogs.unshift(newLog);
+    localStorage.setItem('accessLogs', JSON.stringify(accessLogs));
+
+    // Show success and update table
+    document.getElementById("successSound").play();
+    showPopup(`✅ ${current_action.toUpperCase()} successful for ${visitorData.fullname}`, "success");
+    updateLogsTable();
+  }
+
+  // Update logs table
+  function updateLogsTable() {
+    const tbody = document.getElementById('logBody');
+    
+    if (accessLogs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#777;">No scans yet. Scan a QR code to see logs here.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = accessLogs.map(log => `
+      <tr>
+        <td>${new Date(log.logged_at).toLocaleString()}</td>
+        <td>${log.fullname}</td>
+        <td>${log.unique_id}</td>
+        <td class="status-entry ${log.action}">${log.action.toUpperCase()}</td>
+        <td>${log.contact}</td>
+        <td>${log.school}</td>
+      </tr>
+    `).join('');
+  }
+
+  // Show popup notification
+  function showPopup(message, type) {
+    const popup = document.getElementById("popup");
+    popup.className = `popup show ${type}`;
+    popup.textContent = message;
+    setTimeout(() => popup.classList.remove("show"), 3000);
+  }
+
+  // Add visitor to database (for testing)
+  function addVisitorToDatabase() {
+    const id = prompt("Enter Visitor ID:");
+    if (id) {
+      visitorDatabase[id] = {
+        fullname: prompt("Full Name:") || "Unknown",
+        contact: prompt("Contact:") || "Not provided",
+        school: prompt("School:") || "Not provided",
+        purpose: prompt("Purpose:") || "Not provided",
+        visit_date: new Date().toISOString().split('T')[0]
+      };
+      showPopup(`✅ Visitor ${id} added to database`, "success");
+    }
+  }
+
+  // Clear all data
+  function clearAllData() {
+    if (confirm('Clear all logs?')) {
+      localStorage.removeItem('accessLogs');
+      accessLogs = [];
+      updateLogsTable();
+      document.getElementById('visitorInfo').style.display = 'none';
+      showPopup("🗑️ All logs cleared", "success");
+    }
+  }
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', initializeData);
   </script>
+
+  <!-- Hidden controls -->
+  <div style="position:fixed; bottom:10px; right:10px;">
+    <button onclick="addVisitorToDatabase()" style="background:#666; color:white; border:none; padding:5px; margin:2px; border-radius:3px; font-size:10px;">
+      + Add Visitor
+    </button>
+    <button onclick="clearAllData()" style="background:#ff4444; color:white; border:none; padding:5px; margin:2px; border-radius:3px; font-size:10px;">
+      Clear Logs
+    </button>
+  </div>
 </body>
 </html>
