@@ -2,20 +2,21 @@
 session_start();
 require 'config.php';
 
-// Check kung naka-login ang staff
-if (!isset($_SESSION['staff_logged_in']) || $_SESSION['staff_logged_in'] !== true) {
-    header("Location: home.php");
-    exit;
+// Simple staff session
+if (!isset($_SESSION['staff_logged_in'])) {
+    $_SESSION['staff_logged_in'] = true;
 }
 
-// Kunin ang MGA VISITORS from database
-$visitors_result = $conn->query("SELECT * FROM visitors");
+// Get all registered visitors
+$visitors_result = $conn->query("SELECT * FROM visitors ORDER BY created_at DESC");
 $visitors_data = [];
-while($visitor = $visitors_result->fetch_assoc()) {
-    $visitors_data[$visitor['unique_id']] = $visitor;
+if ($visitors_result) {
+    while($visitor = $visitors_result->fetch_assoc()) {
+        $visitors_data[$visitor['unique_id']] = $visitor;
+    }
 }
 
-// Kunin ang mga access logs
+// Get access logs
 $logs_result = $conn->query("
     SELECT al.*, v.contact, v.school, v.visit_date, v.purpose 
     FROM access_logs al 
@@ -27,68 +28,168 @@ $logs_result = $conn->query("
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- HEAD CONTENT SAME AS BEFORE -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Log Management</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: #f5f5f5;
+    }
+    header {
+      background: #2c3e50;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .scanner-section {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    #reader {
+      width: 100%;
+      max-width: 400px;
+      margin: 0 auto;
+      border: 3px solid #3498db;
+      border-radius: 10px;
+    }
+    .btn {
+      background: #3498db;
+      color: white;
+      padding: 12px 25px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px;
+    }
+    .btn:hover {
+      background: #2980b9;
+    }
+    .visitor-info {
+      background: #e8f4fc;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      display: none;
+    }
+    .logs-section {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background: #34495e;
+      color: white;
+    }
+    .check-in { color: #27ae60; font-weight: bold; }
+    .check-out { color: #e74c3c; font-weight: bold; }
+    .stats {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      flex: 1;
+      text-align: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+  </style>
 </head>
 <body>
-
   <header>
-    <i class="ri-qr-scan-2-line"></i> Staff Log Management
-    <a href="logout.php" class="logout-btn">Logout</a>
+    <h1>🎯 Staff Log Management</h1>
+    <p>Scan visitor QR codes for check-in/check-out</p>
   </header>
 
-  <main>
-    <div class="demo-notice">
-      <strong>📊 Registered Visitors: <?php echo count($visitors_data); ?></strong>
+  <div class="container">
+    <div class="stats">
+      <div class="stat-card">
+        <h3>📊 Registered Visitors</h3>
+        <p style="font-size: 24px; font-weight: bold; color: #3498db;"><?php echo count($visitors_data); ?></p>
+      </div>
+      <div class="stat-card">
+        <h3>📝 Total Logs</h3>
+        <p style="font-size: 24px; font-weight: bold; color: #e74c3c;"><?php echo $logs_result ? $logs_result->num_rows : 0; ?></p>
+      </div>
     </div>
 
-    <div id="reader"></div>
-    <button class="btn" onclick="startScanner()">
-      <i class="ri-camera-line"></i> Start Scanner
-    </button>
+    <div class="scanner-section">
+      <h2>📷 QR Code Scanner</h2>
+      <div id="reader"></div>
+      <button class="btn" onclick="startScanner()">Start Scanner</button>
+      <button class="btn" onclick="stopScanner()" style="background: #e74c3c;">Stop Scanner</button>
 
-    <!-- Visitor Info Display -->
-    <div id="visitorInfo" class="visitor-info" style="display:none;">
-      <h3>📋 Visitor Information</h3>
-      <p><strong>Name:</strong> <span id="infoName"></span></p>
-      <p><strong>Contact:</strong> <span id="infoContact"></span></p>
-      <p><strong>School:</strong> <span id="infoSchool"></span></p>
-      <p><strong>Purpose:</strong> <span id="infoPurpose"></span></p>
-      <p><strong>Visit Date:</strong> <span id="infoDate"></span></p>
+      <div id="visitorInfo" class="visitor-info">
+        <h3>✅ Visitor Information</h3>
+        <p><strong>Name:</strong> <span id="infoName"></span></p>
+        <p><strong>Contact:</strong> <span id="infoContact"></span></p>
+        <p><strong>School:</strong> <span id="infoSchool"></span></p>
+        <p><strong>Purpose:</strong> <span id="infoPurpose"></span></p>
+        <p><strong>Visit Date:</strong> <span id="infoDate"></span></p>
+      </div>
     </div>
 
-    <h2>Recent Access Logs</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Visitor Name</th>
-          <th>Contact</th>
-          <th>School</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php if ($logs_result->num_rows > 0): ?>
-          <?php while($log = $logs_result->fetch_assoc()): ?>
+    <div class="logs-section">
+      <h2>📋 Recent Access Logs</h2>
+      <table>
+        <thead>
           <tr>
-            <td><?= date('M j, g:i A', strtotime($log['logged_at'])) ?></td>
-            <td><?= htmlspecialchars($log['fullname']) ?></td>
-            <td><?= htmlspecialchars($log['contact']) ?></td>
-            <td><?= htmlspecialchars($log['school']) ?></td>
-            <td class="status-entry <?= $log['action'] ?>"><?= strtoupper($log['action']) ?></td>
+            <th>Time</th>
+            <th>Visitor Name</th>
+            <th>Contact</th>
+            <th>School</th>
+            <th>Action</th>
           </tr>
-          <?php endwhile; ?>
-        <?php else: ?>
-          <tr><td colspan="5">No access logs found</td></tr>
-        <?php endif; ?>
-      </tbody>
-    </table>
-  </main>
+        </thead>
+        <tbody>
+          <?php if ($logs_result && $logs_result->num_rows > 0): ?>
+            <?php while($log = $logs_result->fetch_assoc()): ?>
+            <tr>
+              <td><?= date('M j, g:i A', strtotime($log['logged_at'])) ?></td>
+              <td><?= htmlspecialchars($log['fullname']) ?></td>
+              <td><?= htmlspecialchars($log['contact']) ?></td>
+              <td><?= htmlspecialchars($log['school']) ?></td>
+              <td class="<?= $log['action'] ?>"><?= strtoupper($log['action']) ?></td>
+            </tr>
+            <?php endwhile; ?>
+          <?php else: ?>
+            <tr>
+              <td colspan="5" style="text-align: center; padding: 20px; color: #777;">
+                No access logs found. Scan QR codes to see logs here.
+              </td>
+            </tr>
+          <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
   <script>
   let html5QrcodeScanner;
-  
-  // VISITORS FROM DATABASE - Auto-loaded from PHP
   const visitorDatabase = <?php echo json_encode($visitors_data); ?>;
 
   async function startScanner() {
@@ -97,14 +198,19 @@ $logs_result = $conn->query("
     
     try {
       html5QrcodeScanner = new Html5Qrcode("reader");
-      
       await html5QrcodeScanner.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
-        (decodedText) => handleScan(decodedText)
+        handleScan
       );
     } catch (err) {
-      alert("⚠️ Camera access denied or not supported.");
+      alert("Camera error: " + err);
+    }
+  }
+
+  function stopScanner() {
+    if (html5QrcodeScanner) {
+      html5QrcodeScanner.stop();
     }
   }
 
@@ -113,23 +219,31 @@ $logs_result = $conn->query("
       html5QrcodeScanner.stop();
     }
 
+    console.log("Scanned:", decodedText);
+
     let visitorData;
     try {
       visitorData = JSON.parse(decodedText);
     } catch {
-      // If plain text, lookup in database
       const scannedId = decodedText.trim();
       if (visitorDatabase[scannedId]) {
         visitorData = visitorDatabase[scannedId];
-        visitorData.unique_id = scannedId;
       } else {
         alert("❌ Visitor not found: " + scannedId);
         return;
       }
     }
 
-    // Send to server to log the scan
-    fetch("api/scan_log.php", {
+    // Show visitor info
+    document.getElementById('visitorInfo').style.display = 'block';
+    document.getElementById('infoName').textContent = visitorData.fullname;
+    document.getElementById('infoContact').textContent = visitorData.contact;
+    document.getElementById('infoSchool').textContent = visitorData.school || 'Not provided';
+    document.getElementById('infoPurpose').textContent = visitorData.purpose;
+    document.getElementById('infoDate').textContent = visitorData.visit_date;
+
+    // Send to server
+    fetch("api_scan.php", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
@@ -140,16 +254,8 @@ $logs_result = $conn->query("
     .then(res => res.json())
     .then(data => {
       if (data.success) {
-        // Show visitor info
-        document.getElementById('visitorInfo').style.display = 'block';
-        document.getElementById('infoName').textContent = visitorData.fullname;
-        document.getElementById('infoContact').textContent = visitorData.contact;
-        document.getElementById('infoSchool').textContent = visitorData.school;
-        document.getElementById('infoPurpose').textContent = visitorData.purpose;
-        document.getElementById('infoDate').textContent = visitorData.visit_date;
-        
         alert("✅ " + data.message + " - " + visitorData.fullname);
-        setTimeout(() => location.reload(), 1500);
+        setTimeout(() => location.reload(), 1000);
       } else {
         alert("❌ " + data.message);
       }
