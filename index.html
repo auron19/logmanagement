@@ -7,11 +7,11 @@
   <script src="https://unpkg.com/html5-qrcode"></script>
   <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 
-  <!-- ✅ Sound effects -->
   <audio id="successSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
   <audio id="errorSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
   <style>
+    /* Your existing CSS styles here */
     body {
       margin: 0;
       font-family: "Segoe UI", sans-serif;
@@ -88,8 +88,6 @@
       margin: 20px 0;
       font-size: 0.85rem;
     }
-
-    /* ✅ Popup Notification Style */
     .popup {
       position: fixed;
       top: 30px;
@@ -116,6 +114,13 @@
     .popup.error {
       border-color: #ff4040;
     }
+    .demo-data {
+      background: #003300;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 8px;
+      color: #88ff88;
+    }
   </style>
 </head>
 <body>
@@ -125,12 +130,17 @@
   </header>
 
   <main>
+    <div class="demo-data">
+      <strong>DEMO MODE</strong><br>
+      Scanner working • Database connection needed for real data
+    </div>
+
     <div id="reader"></div>
     <button class="btn" onclick="startScanner()">
       <i class="ri-camera-line"></i> Start Scanner
     </button>
 
-    <h2>Recent Access Logs</h2>
+    <h2>Recent Access Logs (Demo Data)</h2>
     <table id="logTable">
       <thead>
         <tr>
@@ -142,7 +152,7 @@
         </tr>
       </thead>
       <tbody id="logBody">
-        <tr><td colspan="5" style="text-align:center; color:#777;">Loading...</td></tr>
+        <tr><td colspan="5" style="text-align:center; color:#777;">Loading demo data...</td></tr>
       </tbody>
     </table>
   </main>
@@ -151,7 +161,6 @@
     Museum Visitor Log & QR Scanner • Staff Access Only
   </footer>
 
-  <!-- Popup Container -->
   <div id="popup" class="popup"></div>
 
   <script>
@@ -174,7 +183,9 @@
   }
 
   function handleScan(decodedText) {
-    html5QrcodeScanner.stop();
+    if (html5QrcodeScanner) {
+      html5QrcodeScanner.stop();
+    }
 
     let parsed;
     try {
@@ -183,61 +194,49 @@
       parsed = { unique_id: decodedText };
     }
 
-    const unique_id = parsed.unique_id || "";
+    const unique_id = parsed.unique_id || decodedText;
 
-    // ✅ Updated URL – use your PC’s IP
-    fetch("http://192.168.0.101/api/scan_log.php", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ unique_id })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        document.getElementById("successSound").play();
-        showPopup("✅ " + data.message, "success");
-      } else {
-        document.getElementById("errorSound").play();
-        showPopup("❌ " + data.message, "error");
-      }
-      loadLogs();
-    })
-    .catch(() => {
-      document.getElementById("errorSound").play();
-      showPopup("⚠️ Error connecting to server.", "error");
-    });
+    // For GitHub Pages demo - simulate API call
+    showPopup("🔄 Processing scan: " + unique_id, "success");
+    document.getElementById("successSound").play();
+    
+    // Simulate API delay
+    setTimeout(() => {
+      showPopup("✅ Check-in successful for ID: " + unique_id, "success");
+      loadDemoLogs(); // Refresh the demo logs
+    }, 1000);
   }
 
-  function loadLogs() {
-    // ✅ Updated URL – use your PC’s IP
-    fetch("http://192.168.0.101/api/logs.php?limit=10")
-      .then(res => res.json())
-      .then(data => {
-        const tbody = document.getElementById("logBody");
-        if (!data || data.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No logs</td></tr>`;
-          return;
-        }
-        tbody.innerHTML = data.map(r => `
-          <tr>
-            <td>${r.id}</td>
-            <td>${r.fullname}</td>
-            <td>${r.unique_id}</td>
-            <td class="status-entry">${r.action}</td>
-            <td>${r.logged_at}</td>
-          </tr>
-        `).join("");
-      });
+  function loadDemoLogs() {
+    // Demo data for GitHub Pages
+    const demoLogs = [
+      { id: 1, fullname: "Juan Dela Cruz", unique_id: "VIS001", action: "CHECK-IN", logged_at: "Just now" },
+      { id: 2, fullname: "Maria Santos", unique_id: "VIS002", action: "CHECK-OUT", logged_at: "2 mins ago" },
+      { id: 3, fullname: "Pedro Reyes", unique_id: "VIS003", action: "CHECK-IN", logged_at: "5 mins ago" },
+      { id: 4, fullname: "Ana Lopez", unique_id: "VIS004", action: "CHECK-IN", logged_at: "10 mins ago" }
+    ];
+
+    const tbody = document.getElementById("logBody");
+    tbody.innerHTML = demoLogs.map(log => `
+      <tr>
+        <td>${log.id}</td>
+        <td>${log.fullname}</td>
+        <td>${log.unique_id}</td>
+        <td class="status-entry">${log.action}</td>
+        <td>${log.logged_at}</td>
+      </tr>
+    `).join("");
   }
 
   function showPopup(message, type) {
     const popup = document.getElementById("popup");
     popup.className = `popup show ${type}`;
     popup.textContent = message;
-    setTimeout(() => popup.classList.remove("show"), 2500);
+    setTimeout(() => popup.classList.remove("show"), 3000);
   }
 
-  loadLogs();
-  setInterval(loadLogs, 10000);
-</script>
-
+  // Load demo data on page load
+  loadDemoLogs();
+  </script>
+</body>
+</html>
